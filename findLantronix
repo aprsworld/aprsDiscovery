@@ -1,0 +1,44 @@
+#!/usr/local/bin/php -q
+<?
+// Timeout in seconds waiting for a response.
+$timeout = 1;
+
+$sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+socket_bind($sock,"0.0.0.0",30718);
+socket_set_option($sock, SOL_SOCKET, SO_BROADCAST, 1);
+$buf = "\x00\x00\x00\xf6";
+socket_sendto($sock, $buf, strlen($buf), 0, "255.255.255.255", 30718);
+socket_set_block($sock);
+socket_set_option($sock,
+                         SOL_SOCKET,
+                         SO_RCVTIMEO,
+                         array("sec"=>$timeout,"usec"=>0));
+$timeout += time();
+
+
+printf("# The following Lantronix devices are on the local network:\n");
+while (time() <= $timeout-1) {
+	if (($len = @socket_recvfrom($sock,$ret,2048,0,$cIP,$cPort)) != false) {
+		/* actually got some data, now parse */
+	
+		/* check to see if we get a valid response code */
+		if ( 0xf7 == ord(substr($ret,3,1)) ) {
+			printf("%s\t%02X:%02X:%02X:%02X:%02X:%02X\n",$cIP,
+				ord(substr($ret,24,1)),
+				ord(substr($ret,25,1)),
+				ord(substr($ret,26,1)),
+				ord(substr($ret,27,1)),
+				ord(substr($ret,28,1)),
+				ord(substr($ret,29,1))
+			);
+		}
+
+//		for ( $i=0 ; $i<strlen($ret) ; $i++ ) {
+//			printf("\t[%d] 0x%02X\n",$i,ord(substr($ret,$i,1)));
+//		}	
+	}
+}
+
+socket_set_nonblock($sock);
+socket_close($sock);
+?>
