@@ -1,0 +1,76 @@
+#!/usr/bin/php -q
+<?
+// Timeout in seconds waiting for a response.
+$timeout = 1;
+
+$sock = socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+socket_bind($sock,"0.0.0.0",30719);
+socket_set_option($sock, SOL_SOCKET, SO_BROADCAST, 1);
+$buf = "\x00\x00\x00\xf6";
+socket_sendto($sock, $buf, strlen($buf), 0, "255.255.255.255", 30719);
+socket_set_block($sock);
+socket_set_option($sock,
+                         SOL_SOCKET,
+                         SO_RCVTIMEO,
+                         array("sec"=>$timeout,"usec"=>0));
+$timeout += time();
+
+
+printf("# The following APRS World devices are on the local network:\n");
+while (time() <= $timeout-1) {
+	if (($len = @socket_recvfrom($sock,$ret,2048,0,$cIP,$cPort)) != false) {
+		/* actually got some data, now parse */
+	
+		/* check to see if we get a valid response code */
+		if ( 0xf7 == ord(substr($ret,3,1)) ) {
+			/* IP address response came from */
+			printf("Response from: %s\n",$cIP);
+
+			$serialPrefix=substr($ret,5,1);
+			$serialNumber=(ord(substr($ret,6,1))<<8) + (ord(substr($ret,7,1)));
+			printf("\tSerial: %s%d\n",$serialPrefix,$serialNumber);
+
+			/* primary */
+			printf("\tPrimary   IP %-15s (%02X:%02X:%02X:%02X:%02X:%02X)\n",
+				/* ip address */
+				(ord(substr($ret,20,1)) . "." . ord(substr($ret,21,1)) . "." .  ord(substr($ret,22,1)) . "." . ord(substr($ret,23,1))),
+				/* MAC address */
+				ord(substr($ret,24,1)),
+				ord(substr($ret,25,1)),
+				ord(substr($ret,26,1)),
+				ord(substr($ret,27,1)),
+				ord(substr($ret,28,1)),
+				ord(substr($ret,29,1))
+			);
+
+			/* secondary */
+			printf("\tSecondary IP %-15s (%02X:%02X:%02X:%02X:%02X:%02X)\n",
+				/* ip address */
+				(ord(substr($ret,10,1)) . "." . ord(substr($ret,11,1)) . "." .  ord(substr($ret,12,1)) . "." . ord(substr($ret,13,1))),
+				/* MAC address */
+				ord(substr($ret,14,1)),
+				ord(substr($ret,15,1)),
+				ord(substr($ret,16,1)),
+				ord(substr($ret,17,1)),
+				ord(substr($ret,18,1)),
+				ord(substr($ret,19,1))
+			);
+		}
+
+		printf("\n");
+/*
+		for ( $i=0 ; $i<strlen($ret) ; $i++ ) {
+			$c=substr($ret,$i,1);
+			printf("\t[%d] 0x%02X\t(dec=%-3d)\t",$i,ord($c),ord($c));
+			if ( ctype_print($c) ) {
+				printf(" (ascii='%s')",$c);
+			}
+			printf("\n");
+		}	
+*/
+	}
+}
+
+socket_set_nonblock($sock);
+socket_close($sock);
+?>

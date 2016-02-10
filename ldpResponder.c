@@ -11,6 +11,19 @@ void die(char *s) {
 	perror(s);
 	exit(1);
 }
+
+void build_response_aprs(char *buff) {
+	memset((char *) buff, 0, sizeof(buff));
+	
+	buff[3]=0xf7;
+	buff[24]=0xde;
+	buff[25]=0xad;
+	buff[26]=0xbe;
+	buff[27]=0xef;
+	buff[28]=0x01;
+	buff[29]=0x23;
+
+}
  
 int main(void) {
 	struct sockaddr_in si_me, si_other;
@@ -18,19 +31,21 @@ int main(void) {
 	int s, i, slen = sizeof(si_other) , recv_len;
 	char buff[BUFLEN];
      
-	//create a UDP socket
+	/* create UDP socket */
 	if ((s=socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1) {
 		die("socket");
 	}
      
-	// zero out the structure
+	/* clear structure */
 	memset((char *) &si_me, 0, sizeof(si_me));
      
 	si_me.sin_family = AF_INET;
+	/* port from define */
 	si_me.sin_port = htons(PORT);
+	/* any interface */
 	si_me.sin_addr.s_addr = htonl(INADDR_ANY);
      
-	//bind socket to port
+	/* bind socket to port */
 	if( bind(s , (struct sockaddr*)&si_me, sizeof(si_me) ) == -1) {
 		die("bind");
 	}
@@ -61,16 +76,14 @@ int main(void) {
 			memset((char *) buff, 0, sizeof(buff));
 			buff[3]=0xF7;
 
+			/* build our response and put in buff */
+			build_response_aprs(buff);
+
 			/* send response */
 			if (sendto(s, buff, sizeof(buff), 0, (struct sockaddr*) &si_other, slen) == -1) {
 				die("sendto()");
 			}
 		}
-         
-//		//now reply the client with the same data
-//		if (sendto(s, buff, recv_len, 0, (struct sockaddr*) &si_other, slen) == -1) {
-//			die("sendto()");
-//		}
 	}
  
 	close(s);
